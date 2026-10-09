@@ -420,6 +420,7 @@ do
       vim.keymap.set('n', '<leader>hb', function() gitsigns.blame_line { full = true } end, { desc = 'git [b]lame line', buf = bufnr })
       vim.keymap.set('n', '<leader>hd', gitsigns.diffthis, { desc = 'git [d]iff against index', buf = bufnr })
       vim.keymap.set('n', '<leader>hD', function() gitsigns.diffthis '~' end, { desc = 'git [D]iff against last commit', buf = bufnr })
+      vim.keymap.set('n', '<leader>hm', function() gitsigns.diffthis 'main' end, { desc = 'git diff against [m]ain', buf = bufnr })
       vim.keymap.set('n', '<leader>hQ', function() gitsigns.setqflist 'all' end, { desc = 'git hunk [Q]uickfix list (all files in repo)', buf = bufnr })
       vim.keymap.set('n', '<leader>hq', gitsigns.setqflist, { desc = 'git hunk [q]uickfix list (all changes in this file)', buf = bufnr })
       -- Toggles
@@ -624,6 +625,12 @@ do
     -- pickers = {}
     extensions = {
       ['ui-select'] = { require('telescope.themes').get_dropdown() },
+      -- Loaded in lua/custom/plugins/git.lua
+      advanced_git_search = {
+        browse_command = 'GBrowse {commit_hash}',
+        diff_plugin = 'fugitive',
+        entry_default_author_or_date = 'author',
+      },
     },
   }
 
