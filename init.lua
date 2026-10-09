@@ -96,10 +96,11 @@ do
   -- See `:help mapleader`
   --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
   vim.g.mapleader = ' '
-  vim.g.maplocalleader = ' '
+  -- vimtex's mappings live under the local leader ('ll compile, 'lv view, ...)
+  vim.g.maplocalleader = "'"
 
   -- Set to true if you have a Nerd Font installed and selected in the terminal
-  vim.g.have_nerd_font = false
+  vim.g.have_nerd_font = true
 
   -- [[ Setting options ]]
   --  See `:help vim.o`
@@ -110,7 +111,27 @@ do
   vim.o.number = true
   -- You can also add relative line numbers, to help with jumping.
   --  Experiment for yourself to see if you like it!
-  -- vim.o.relativenumber = true
+  vim.o.relativenumber = true
+
+  -- Default indentation (guess-indent and ftplugins override per buffer)
+  vim.o.tabstop = 4
+  vim.o.softtabstop = 4
+  vim.o.shiftwidth = 4
+  vim.o.expandtab = true
+
+  -- Soft-wrap long lines at word boundaries
+  vim.o.wrap = true
+  vim.o.linebreak = true
+
+  vim.o.swapfile = false
+
+  vim.o.spelllang = 'en_gb,fr'
+
+  vim.o.conceallevel = 2
+
+  -- Treesitter folds are computed but disabled until toggled with `zi`
+  vim.o.foldenable = false
+  vim.o.foldlevel = 2
 
   -- Enable mouse mode, can be useful for resizing splits for example!
   vim.o.mouse = 'a'
@@ -165,7 +186,7 @@ do
   vim.o.cursorline = true
 
   -- Minimal number of screen lines to keep above and below the cursor.
-  vim.o.scrolloff = 10
+  vim.o.scrolloff = 8
 
   -- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
   -- instead raise a dialog asking if you wish to save the current file(s)
@@ -209,7 +230,14 @@ do
     },
   }
 
-  vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+  vim.keymap.set('n', '<leader>q', '<cmd>q<CR>', { desc = '[Q]uit current window' })
+  vim.keymap.set('n', '<leader>w', '<cmd>w<CR>', { desc = '[W]rite current buffer' })
+
+  vim.keymap.set({ 'i', 'v', 's' }, '<C-c>', '<Esc>')
+  -- Recursive so that <C-c> also triggers <Esc> mappings (clearing search highlights, closing plugin windows, ...)
+  vim.keymap.set('n', '<C-c>', '<Esc>', { remap = true })
+
+  vim.keymap.set('n', 'gl', function() vim.diagnostic.open_float { source = true } end, { desc = 'Show diagnostics in floating window' })
 
   -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
   -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -1023,7 +1051,7 @@ do
   -- NOTE: You can add your own plugins, configuration, etc. in `lua/custom/plugins/*.lua`.
   --
   -- For independent modules, uncomment the convenience loader:
-  -- require 'custom.plugins'
+  require 'custom.plugins'
   --
   -- `custom.plugins` automatically loads files from that directory, but their
   -- order is unspecified. If plugins depend on each other, keep them in the same
