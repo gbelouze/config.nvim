@@ -968,17 +968,36 @@ do
   -- NOTE: You can also specify plugin using a version range for its git tag.
   --  See `:help vim.version.range()` for more info
   vim.pack.add { { src = gh 'L3MON4D3/LuaSnip', version = vim.version.range '2.*' } }
-  require('luasnip').setup {}
+  local luasnip = require 'luasnip'
+  luasnip.setup {
+    enable_autosnippets = true,
+    store_selection_keys = '<Tab>',
+    update_events = 'TextChanged,TextChangedI',
+    loaders_store_source = true,
+  }
 
-  -- `friendly-snippets` contains a variety of premade snippets.
-  --    See the README about individual language/framework/plugin snippets:
-  --    https://github.com/rafamadriz/friendly-snippets
-  --
-  -- vim.pack.add { gh 'rafamadriz/friendly-snippets' }
-  -- require('luasnip.loaders.from_vscode').lazy_load()
+  -- Personal fork of `friendly-snippets` (VSCode-format snippets),
+  -- loaded with a low priority so that the Lua snippets below win.
+  vim.pack.add { gh 'gbelouze/friendly-snippets' }
+  require('luasnip.loaders.from_vscode').lazy_load { default_priority = 50 }
+
+  -- Personal Lua snippets, one directory/file per filetype
+  local snippets_dir = vim.fs.joinpath(vim.fn.stdpath 'config', 'snippets')
+  require('luasnip.loaders.from_lua').lazy_load { paths = { snippets_dir } }
+  vim.keymap.set('n', '<leader>L', function() require('luasnip.loaders.from_lua').load { paths = { snippets_dir } } end, { desc = 'Reload the snippets' })
+
+  vim.keymap.set({ 'i', 's' }, '<C-d>', function() luasnip.jump(1) end, { desc = 'Jump to the next snippet placeholder', silent = true })
+  vim.keymap.set({ 'i', 's' }, '<C-u>', function() luasnip.jump(-1) end, { desc = 'Jump to the previous snippet placeholder', silent = true })
 
   -- [[ Autocomplete Engine ]]
-  vim.pack.add { { src = gh 'saghen/blink.cmp', version = vim.version.range '1.*' } }
+  vim.pack.add {
+    { src = gh 'saghen/blink.cmp', version = vim.version.range '1.*' },
+    -- Extra completion sources
+    { src = gh 'saghen/blink.compat', version = vim.version.range '2.*' }, -- adapter for nvim-cmp sources
+    gh 'micangl/cmp-vimtex',
+    gh 'erooke/blink-cmp-latex',
+    gh 'moyiz/blink-emoji.nvim',
+  }
   require('blink.cmp').setup {
     keymap = {
       -- 'default' (recommended) for mappings similar to built-in completions
@@ -1021,7 +1040,19 @@ do
     },
 
     sources = {
-      default = { 'lsp', 'path', 'snippets' },
+      default = { 'lsp', 'path', 'snippets', 'buffer' },
+      per_filetype = {
+        tex = { inherit_defaults = true, 'vimtex', 'latex' },
+        typst = { inherit_defaults = true, 'latex' },
+        markdown = { inherit_defaults = true, 'latex', 'emoji' },
+        gitcommit = { inherit_defaults = true, 'emoji' },
+        text = { inherit_defaults = true, 'emoji' },
+      },
+      providers = {
+        vimtex = { name = 'vimtex', module = 'blink.compat.source' },
+        latex = { name = 'Latex', module = 'blink-cmp-latex' },
+        emoji = { name = 'Emoji', module = 'blink-emoji' },
+      },
     },
 
     snippets = { preset = 'luasnip' },
@@ -1170,7 +1201,7 @@ do
   -- require 'kickstart.plugins.debug'
   -- require 'kickstart.plugins.indent_line'
   -- require 'kickstart.plugins.lint'
-  -- require 'kickstart.plugins.autopairs'
+  require 'kickstart.plugins.autopairs'
   require 'kickstart.plugins.neo-tree'
 
   -- NOTE: You can add your own plugins, configuration, etc. in `lua/custom/plugins/*.lua`.
