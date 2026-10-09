@@ -663,6 +663,7 @@ do
       -- This is where a variable was first declared, or where a function is defined, etc.
       -- To jump back, press <C-t>.
       vim.keymap.set('n', 'grd', builtin.lsp_definitions, { buffer = buf, desc = '[G]oto [D]efinition' })
+      vim.keymap.set('n', 'gd', builtin.lsp_definitions, { buffer = buf, desc = '[G]oto [D]efinition' })
 
       -- Fuzzy find all the symbols in your current document.
       -- Symbols are things like variables, functions, types, etc.
@@ -825,6 +826,19 @@ do
     -- But for many setups, the LSP (`rust_analyzer`) will work just fine
     -- rust_analyzer = {},
 
+    -- Language-specific settings for these servers live in `lua/custom/plugins/<language>.lua`
+    ruff = {},
+    ty = {},
+    pyrefly = {},
+    tinymist = {},
+    markdown_oxide = {},
+
+    ocamllsp = {},
+    bashls = {},
+    jsonls = {},
+    yamlls = {},
+    taplo = {},
+
     stylua = {}, -- Used to format Lua code
 
     -- Special Lua Config, as recommended by neovim help docs
@@ -884,7 +898,12 @@ do
   -- You can press `g?` for help in this menu.
   local ensure_installed = vim.tbl_keys(servers or {})
   vim.list_extend(ensure_installed, {
-    -- You can add other tools here that you want Mason to install
+    -- Formatters used by conform.nvim
+    'ocamlformat',
+    'typstyle',
+    'prettier',
+    'yamlfmt',
+    'shfmt',
   })
 
   require('mason-tool-installer').setup { ensure_installed = ensure_installed }
@@ -921,16 +940,22 @@ do
     },
     -- You can also specify external formatters in here.
     formatters_by_ft = {
-      -- rust = { 'rustfmt' },
-      -- Conform can also run multiple formatters sequentially
-      -- python = { "isort", "black" },
-      --
-      -- You can use 'stop_after_first' to run the first available formatter from the list
-      -- javascript = { "prettierd", "prettier", stop_after_first = true },
+      -- Conform runs multiple formatters sequentially
+      python = { 'ruff_fix', 'ruff_format' },
+      lua = { 'stylua' },
+      ocaml = { 'ocamlformat' },
+      typst = { 'typstyle' },
+      tex = { 'latexindent' },
+      sh = { 'shfmt' },
+      bash = { 'shfmt' },
+      json = { 'prettier' },
+      markdown = { 'prettier' },
+      yaml = { 'yamlfmt', 'prettier', stop_after_first = true },
     },
   }
 
   vim.keymap.set({ 'n', 'v' }, '<leader>f', function() require('conform').format { async = true } end, { desc = '[F]ormat buffer' })
+  vim.keymap.set({ 'n', 'v' }, '<leader>F', function() require('conform').format { timeout_ms = 10000 } end, { desc = '[F]ormat buffer (wait up to 10s)' })
 end
 
 -- ============================================================
