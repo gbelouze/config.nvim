@@ -498,21 +498,61 @@ do
   --  - va)  - [V]isually select [A]round [)]paren
   --  - yiiq - [Y]ank [I]nside [I]+1 [Q]uote
   --  - ci'  - [C]hange [I]nside [']quote
-  require('mini.ai').setup {
+  --
+  -- Treesitter-based objects (queries from nvim-treesitter-textobjects, see SECTION 9):
+  --  - vaF  - [V]isually select [A]round [F]unction definition
+  --  - cic  - [C]hange [I]nside [C]lass
+  --  - ysaF) - Surround [A]round [F]unction with parentheses
+  -- `f` (function call) and `a` (argument) are mini.ai's built-in objects.
+  vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter-textobjects', version = 'main' } }
+  local ai = require 'mini.ai'
+  ai.setup {
     -- NOTE: Avoid conflicts with the built-in incremental selection mappings on Neovim>=0.12 (see `:help treesitter-incremental-selection`)
+    -- and with the `aa` (argument) / `ii` (indent scope) objects.
     mappings = {
-      around_next = 'aa',
-      inside_next = 'ii',
+      around_next = 'aN',
+      inside_next = 'iN',
     },
     n_lines = 500,
+    custom_textobjects = {
+      F = ai.gen_spec.treesitter { a = '@function.outer', i = '@function.inner' },
+      c = ai.gen_spec.treesitter { a = '@class.outer', i = '@class.inner' },
+      d = ai.gen_spec.treesitter { a = '@comment.outer', i = '@comment.inner' },
+      o = ai.gen_spec.treesitter {
+        a = { '@block.outer', '@conditional.outer', '@loop.outer' },
+        i = { '@block.inner', '@conditional.inner', '@loop.inner' },
+      },
+    },
   }
 
-  -- Add/delete/replace surroundings (brackets, quotes, etc.)
+  -- Indent-scope textobjects `ii` / `ai` (and `[i` / `]i` jumps), without drawing the scope
+  require('mini.indentscope').setup {
+    draw = { predicate = function() return false end },
+  }
+
+  -- Add/delete/replace surroundings (brackets, quotes, etc.), with vim-surround style mappings
   --
-  -- - saiw) - [S]urround [A]dd [I]nner [W]ord [)]Paren
-  -- - sd'   - [S]urround [D]elete [']quotes
-  -- - sr)'  - [S]urround [R]eplace [)] [']
-  require('mini.surround').setup()
+  -- - ysiw) - Add [)]Paren around [I]nner [W]ord
+  -- - yss"  - Add ["]quotes around the line
+  -- - ds'   - [D]elete [']quotes
+  -- - cs)'  - [C]hange [)] to [']
+  -- - S)    - (Visual mode) Add [)]Paren around the selection
+  require('mini.surround').setup {
+    mappings = {
+      add = 'ys',
+      delete = 'ds',
+      replace = 'cs',
+      find = '',
+      find_left = '',
+      highlight = '',
+      suffix_last = '',
+      suffix_next = '',
+    },
+    search_method = 'cover_or_next',
+  }
+  vim.keymap.del('x', 'ys')
+  vim.keymap.set('x', 'S', [[:<C-u>lua MiniSurround.add('visual')<CR>]], { silent = true, desc = 'Add surrounding to selection' })
+  vim.keymap.set('n', 'yss', 'ys_', { remap = true, desc = 'Add surrounding to line' })
 
   -- Simple and easy statusline.
   --  You could remove this setup call if you don't like it,
@@ -989,14 +1029,37 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+  local parsers = {
+    'bash',
+    'c',
+    'diff',
+    'html',
+    'json',
+    'lua',
+    'luadoc',
+    'markdown',
+    'markdown_inline',
+    'ocaml',
+    'python',
+    'query',
+    'toml',
+    'typst',
+    'vim',
+    'vimdoc',
+    'yaml',
+  }
   require('nvim-treesitter').install(parsers)
+
+  -- vimtex relies on its own regex syntax (e.g. to detect math zones for snippets)
+  local ignored_languages = { latex = true }
 
   ---@param buf integer
   ---@param language string
   local function treesitter_try_attach(buf, language)
     -- Check if the buffer is valid (might not be after install completes)
     if not vim.api.nvim_buf_is_valid(buf) then return end
+
+    if ignored_languages[language] then return end
 
     -- Check if a parser exists and load it
     if not vim.treesitter.language.add(language) then return end
@@ -1006,8 +1069,9 @@ do
 
     -- Enable treesitter based folds
     -- For more info on folds see `:help folds`
-    -- vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-    -- vim.wo.foldmethod = 'expr'
+    -- Folds start disabled (see 'foldenable'); toggle them with `zi`
+    vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+    vim.wo.foldmethod = 'expr'
 
     -- Check if treesitter indentation is available for this language, and if so enable it
     -- in case there is no indent query, the indentexpr will fallback to the vim's built in one
@@ -1023,7 +1087,7 @@ do
       local buf, filetype = args.buf, args.match
 
       local language = vim.treesitter.language.get_lang(filetype)
-      if not language then return end
+      if not language or ignored_languages[language] then return end
 
       local installed_parsers = require('nvim-treesitter').get_installed 'parsers'
 
@@ -1039,6 +1103,29 @@ do
       end
     end,
   })
+
+  -- [[ Treesitter textobjects ]]
+  --  Selection is done by mini.ai (see SECTION 4); this provides jumps and swaps.
+  require('nvim-treesitter-textobjects').setup {
+    move = { set_jumps = true },
+  }
+
+  local move = require 'nvim-treesitter-textobjects.move'
+  local swap = require 'nvim-treesitter-textobjects.swap'
+  local function map_move(keys, fn, query, desc)
+    vim.keymap.set({ 'n', 'x', 'o' }, keys, function() fn(query, 'textobjects') end, { desc = desc })
+  end
+  map_move(']f', move.goto_next_start, '@function.outer', 'Next [f]unction start')
+  map_move('[f', move.goto_previous_start, '@function.outer', 'Previous [f]unction start')
+  map_move(']F', move.goto_next_end, '@function.outer', 'Next [F]unction end')
+  map_move('[F', move.goto_previous_end, '@function.outer', 'Previous [F]unction end')
+  map_move(']k', move.goto_next_start, '@class.outer', 'Next class start')
+  map_move('[k', move.goto_previous_start, '@class.outer', 'Previous class start')
+  map_move(']K', move.goto_next_end, '@class.outer', 'Next class end')
+  map_move('[K', move.goto_previous_end, '@class.outer', 'Previous class end')
+
+  vim.keymap.set('n', '<leader>pp', function() swap.swap_next '@parameter.inner' end, { desc = 'Swap with next [p]arameter' })
+  vim.keymap.set('n', '<leader>pP', function() swap.swap_previous '@parameter.inner' end, { desc = 'Swap with previous [P]arameter' })
 end
 
 -- ============================================================
